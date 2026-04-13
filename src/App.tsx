@@ -425,7 +425,7 @@ const App = () => {
           display: "flex",
           gap: 16,
           flexDirection: isMobile ? "column" : "row",
-          alignItems: isMobile ? "stretch" : "flex-start",
+          alignItems: isMobile ? "center" : "flex-start",
           width: "min(100%, 1200px)",
           justifyContent: "center",
         }}
@@ -486,6 +486,9 @@ const App = () => {
                 border: "1px solid rgba(255,255,255,0.16)",
                 background: "rgba(6,10,20,0.9)",
                 cursor: "pointer",
+                WebkitTouchCallout: "none",
+                WebkitUserSelect: "none",
+                userSelect: "none",
               }}
               title={`Motiv ${pattern.id} laden`}
             >
@@ -499,6 +502,7 @@ const App = () => {
                     height: "100%",
                     objectFit: "cover",
                     filter: "brightness(0.78) contrast(1.12) saturate(0.92)",
+                    pointerEvents: "none",
                   }}
                 />
                 <div
@@ -574,7 +578,7 @@ const App = () => {
         )}
 
         <div
-          style={{ position: "relative", display: "inline-block", touchAction: "none" }}
+          style={{ position: "relative", display: "inline-block" }}
           ref={imageRef}
           onContextMenu={handleContextMenu}
         >
@@ -584,7 +588,7 @@ const App = () => {
           style={{
             display: "block",
             width: "auto",
-            height: "min(82vh, 750px)",
+            height: isMobile ? "min(62vh, 560px)" : "min(82vh, 750px)",
             filter: "brightness(0.78) contrast(1.12) saturate(0.92) drop-shadow(0 8px 22px rgba(0,0,0,0.45))",
           }}
           draggable={false}
