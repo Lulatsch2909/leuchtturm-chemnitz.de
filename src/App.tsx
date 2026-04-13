@@ -107,7 +107,9 @@ const App = () => {
   const [savedPatternMenu, setSavedPatternMenu] = useState<SavedPatternMenu>(null);
   const [isMobileFocusMode, setIsMobileFocusMode] = useState(false);
   const [isMobileSavedDrawerOpen, setIsMobileSavedDrawerOpen] = useState(false);
+  const [longPressPatternId, setLongPressPatternId] = useState<number | null>(null);
   const imageRef = useRef<HTMLDivElement>(null);
+  const appRef = useRef<HTMLDivElement>(null);
   const paintStartWindows = useRef<boolean[][] | null>(null);
   const paintStartCell = useRef<{ row: number; col: number } | null>(null);
   const paintStartedFromLit = useRef(false);
@@ -331,6 +333,16 @@ const App = () => {
     }
   }, [isMobile]);
 
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsMobileFocusMode(false);
+      }
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
   const undo = useCallback(() => {
     if (historyIndex < 0) return;
     setWindows(history[historyIndex].prev.map((r) => [...r]));
@@ -462,6 +474,26 @@ const App = () => {
     swipeStartXRef.current = null;
   }, []);
 
+  const toggleFullscreenMode = useCallback(async () => {
+    const root = appRef.current;
+    if (!root) return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      setIsMobileFocusMode(false);
+      setIsMobileSavedDrawerOpen(false);
+      return;
+    }
+    setIsMobileFocusMode(true);
+    setIsMobileSavedDrawerOpen(false);
+    if (root.requestFullscreen) {
+      try {
+        await root.requestFullscreen();
+      } catch {
+        // Keep fallback focus mode when fullscreen API is blocked.
+      }
+    }
+  }, []);
+
   const savedPatternsPanel = (
     <div
       className="saved-patterns-scroll"
@@ -503,13 +535,23 @@ const App = () => {
             clearLongPressTimeout();
             longPressTimeoutRef.current = window.setTimeout(() => {
               longPressTriggeredPatternRef.current = pattern.id;
+              setLongPressPatternId(pattern.id);
               setSavedPatternMenu({ patternId: pattern.id, x: e.clientX, y: e.clientY });
               longPressTimeoutRef.current = null;
             }, 550);
           }}
-          onPointerUp={() => clearLongPressTimeout()}
-          onPointerCancel={() => clearLongPressTimeout()}
-          onPointerLeave={() => clearLongPressTimeout()}
+          onPointerUp={() => {
+            clearLongPressTimeout();
+            setLongPressPatternId(null);
+          }}
+          onPointerCancel={() => {
+            clearLongPressTimeout();
+            setLongPressPatternId(null);
+          }}
+          onPointerLeave={() => {
+            clearLongPressTimeout();
+            setLongPressPatternId(null);
+          }}
           style={{
             width: isMobile ? 132 : "100%",
             display: isMobile ? "inline-block" : "block",
@@ -523,6 +565,10 @@ const App = () => {
             WebkitTouchCallout: "none",
             WebkitUserSelect: "none",
             userSelect: "none",
+            outline: longPressPatternId === pattern.id ? "1px solid rgba(255,220,140,0.95)" : "none",
+            boxShadow: longPressPatternId === pattern.id ? "0 0 0 3px rgba(255,220,140,0.25)" : "none",
+            transform: longPressPatternId === pattern.id ? "scale(0.985)" : "none",
+            transition: "transform 140ms ease, box-shadow 140ms ease",
           }}
           title={`Motiv ${pattern.id} laden`}
         >
@@ -579,6 +625,7 @@ const App = () => {
 
   return (
     <div
+      ref={appRef}
       onTouchStart={handleFocusTouchStart}
       onTouchMove={handleFocusTouchMove}
       onTouchEnd={handleFocusTouchEnd}
@@ -588,7 +635,7 @@ const App = () => {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: isMobileFocusMode ? "space-between" : "center",
-        padding: isMobileFocusMode ? 10 : 16,
+        padding: isMobileFocusMode ? 8 : 16,
         userSelect: "none",
         background: "#0a0e1a",
         position: isMobileFocusMode ? "fixed" : "relative",
@@ -615,30 +662,31 @@ const App = () => {
 
       {isMobileFocusMode && (
         <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          {isMobile ? (
+            <button
+              onClick={() => setIsMobileSavedDrawerOpen((v) => !v)}
+              aria-label="Gespeicherte Motive"
+              title="Gespeicherte Motive"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.12)",
+                color: "rgba(255,255,255,0.9)",
+                border: 0,
+                cursor: "pointer",
+              }}
+            >
+              <PanelLeft size={18} />
+            </button>
+          ) : (
+            <div style={{ width: 40, height: 40 }} />
+          )}
           <button
-            onClick={() => setIsMobileSavedDrawerOpen((v) => !v)}
-            aria-label="Gespeicherte Motive"
-            title="Gespeicherte Motive"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 40,
-              height: 40,
-              borderRadius: 8,
-              background: "rgba(255,255,255,0.12)",
-              color: "rgba(255,255,255,0.9)",
-              border: 0,
-              cursor: "pointer",
-            }}
-          >
-            <PanelLeft size={18} />
-          </button>
-          <button
-            onClick={() => {
-              setIsMobileFocusMode(false);
-              setIsMobileSavedDrawerOpen(false);
-            }}
+            onClick={toggleFullscreenMode}
             aria-label="Vollbild verlassen"
             title="Vollbild verlassen"
             style={{
@@ -751,9 +799,9 @@ const App = () => {
             height: isMobile
               ? "min(62vh, 560px)"
               : isMobileFocusMode
-                ? "min(90vh, 900px)"
+                ? "min(86vh, 799px)"
                 : "min(82vh, 750px)",
-            filter: "brightness(0.78) contrast(1.12) saturate(0.92) drop-shadow(0 8px 22px rgba(0,0,0,0.45))",
+            filter: "brightness(0.84) contrast(1.08) saturate(1.0) drop-shadow(0 4px 14px rgba(0,0,0,0.35))",
           }}
           draggable={false}
         />
@@ -982,10 +1030,7 @@ const App = () => {
           <Eraser size={18} />
         </button>
         <button
-          onClick={() => {
-            setIsMobileFocusMode((v) => !v);
-            setIsMobileSavedDrawerOpen(false);
-          }}
+          onClick={toggleFullscreenMode}
           title={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
           aria-label={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
           style={{
