@@ -107,9 +107,7 @@ const App = () => {
   const [savedPatternMenu, setSavedPatternMenu] = useState<SavedPatternMenu>(null);
   const [isMobileFocusMode, setIsMobileFocusMode] = useState(false);
   const [isMobileSavedDrawerOpen, setIsMobileSavedDrawerOpen] = useState(false);
-  const [longPressPatternId, setLongPressPatternId] = useState<number | null>(null);
   const imageRef = useRef<HTMLDivElement>(null);
-  const appRef = useRef<HTMLDivElement>(null);
   const paintStartWindows = useRef<boolean[][] | null>(null);
   const paintStartCell = useRef<{ row: number; col: number } | null>(null);
   const paintStartedFromLit = useRef(false);
@@ -475,8 +473,7 @@ const App = () => {
   }, []);
 
   const toggleFullscreenMode = useCallback(async () => {
-    const root = appRef.current;
-    if (!root) return;
+    const root = document.documentElement;
     if (document.fullscreenElement) {
       await document.exitFullscreen();
       setIsMobileFocusMode(false);
@@ -535,23 +532,14 @@ const App = () => {
             clearLongPressTimeout();
             longPressTimeoutRef.current = window.setTimeout(() => {
               longPressTriggeredPatternRef.current = pattern.id;
-              setLongPressPatternId(pattern.id);
+              if (navigator.vibrate) navigator.vibrate(25);
               setSavedPatternMenu({ patternId: pattern.id, x: e.clientX, y: e.clientY });
               longPressTimeoutRef.current = null;
             }, 550);
           }}
-          onPointerUp={() => {
-            clearLongPressTimeout();
-            setLongPressPatternId(null);
-          }}
-          onPointerCancel={() => {
-            clearLongPressTimeout();
-            setLongPressPatternId(null);
-          }}
-          onPointerLeave={() => {
-            clearLongPressTimeout();
-            setLongPressPatternId(null);
-          }}
+          onPointerUp={() => clearLongPressTimeout()}
+          onPointerCancel={() => clearLongPressTimeout()}
+          onPointerLeave={() => clearLongPressTimeout()}
           style={{
             width: isMobile ? 132 : "100%",
             display: isMobile ? "inline-block" : "block",
@@ -565,10 +553,6 @@ const App = () => {
             WebkitTouchCallout: "none",
             WebkitUserSelect: "none",
             userSelect: "none",
-            outline: longPressPatternId === pattern.id ? "1px solid rgba(255,220,140,0.95)" : "none",
-            boxShadow: longPressPatternId === pattern.id ? "0 0 0 3px rgba(255,220,140,0.25)" : "none",
-            transform: longPressPatternId === pattern.id ? "scale(0.985)" : "none",
-            transition: "transform 140ms ease, box-shadow 140ms ease",
           }}
           title={`Motiv ${pattern.id} laden`}
         >
@@ -581,7 +565,7 @@ const App = () => {
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
-                filter: "brightness(0.78) contrast(1.12) saturate(0.92)",
+                filter: "brightness(0.84) contrast(1.14) saturate(0.95)",
                 pointerEvents: "none",
               }}
             />
@@ -591,7 +575,7 @@ const App = () => {
                 inset: 0,
                 pointerEvents: "none",
                 background:
-                  "radial-gradient(ellipse at 50% 14%, rgba(80,120,210,0.08) 0%, rgba(8,18,38,0.22) 55%, rgba(3,7,16,0.38) 100%)",
+                  "radial-gradient(ellipse at 58% 12%, rgba(78,118,205,0.1) 0%, rgba(12,22,44,0.24) 50%, rgba(4,8,18,0.42) 100%)",
               }}
             />
             {pattern.windows.flatMap((row, ri) =>
@@ -625,7 +609,6 @@ const App = () => {
 
   return (
     <div
-      ref={appRef}
       onTouchStart={handleFocusTouchStart}
       onTouchMove={handleFocusTouchMove}
       onTouchEnd={handleFocusTouchEnd}
@@ -660,7 +643,7 @@ const App = () => {
         </h1>
       )}
 
-      {isMobileFocusMode && (
+      {isMobileFocusMode && isMobile && (
         <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           {isMobile ? (
             <button
@@ -685,25 +668,7 @@ const App = () => {
           ) : (
             <div style={{ width: 40, height: 40 }} />
           )}
-          <button
-            onClick={toggleFullscreenMode}
-            aria-label="Vollbild verlassen"
-            title="Vollbild verlassen"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 40,
-              height: 40,
-              borderRadius: 8,
-              background: "rgba(255,255,255,0.12)",
-              color: "rgba(255,255,255,0.9)",
-              border: 0,
-              cursor: "pointer",
-            }}
-          >
-            <Minimize2 size={18} />
-          </button>
+          <div style={{ width: 40, height: 40 }} />
         </div>
       )}
 
@@ -801,7 +766,10 @@ const App = () => {
               : isMobileFocusMode
                 ? "min(86vh, 799px)"
                 : "min(82vh, 750px)",
-            filter: "brightness(0.84) contrast(1.08) saturate(1.0) drop-shadow(0 4px 14px rgba(0,0,0,0.35))",
+            maxWidth: "100%",
+            filter:
+              "brightness(0.82) contrast(1.16) saturate(0.93) hue-rotate(2deg) " +
+              "drop-shadow(0 4px 12px rgba(0,0,0,0.34))",
           }}
           draggable={false}
         />
@@ -811,7 +779,7 @@ const App = () => {
             inset: 0,
             pointerEvents: "none",
             background:
-              "radial-gradient(ellipse at 50% 14%, rgba(80,120,210,0.08) 0%, rgba(8,18,38,0.22) 55%, rgba(3,7,16,0.38) 100%)",
+              "radial-gradient(ellipse at 58% 12%, rgba(78,118,205,0.1) 0%, rgba(12,22,44,0.24) 50%, rgba(4,8,18,0.42) 100%)",
           }}
         />
 
