@@ -428,6 +428,7 @@ const App = () => {
   const hasSelection = selection && (selection.startRow !== selection.endRow || selection.startCol !== selection.endCol);
   const showDesktopSavedList = !isMobile || !isMobileFocusMode;
   const showMobileSavedDrawer = isMobile && isMobileFocusMode;
+  const controlSize = isMobileFocusMode && isMobile ? 34 : 40;
   const exportAnchors = useCallback(() => {
     const text = JSON.stringify(columns, null, 2);
     if (navigator.clipboard?.writeText) {
@@ -496,8 +497,10 @@ const App = () => {
 
   const toggleFullscreenMode = useCallback(async () => {
     const root = document.documentElement;
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
+    if (document.fullscreenElement || isMobileFocusMode) {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
       setIsMobileFocusMode(false);
       setIsMobileSavedDrawerOpen(false);
       return;
@@ -511,7 +514,7 @@ const App = () => {
         // Keep fallback focus mode when fullscreen API is blocked.
       }
     }
-  }, []);
+  }, [isMobileFocusMode]);
 
   const savedPatternsPanel = (
     <div
@@ -636,50 +639,50 @@ const App = () => {
         disabled={historyIndex < 0}
         title="Zurueck"
         aria-label="Zurueck"
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)", border: 0, cursor: historyIndex < 0 ? "not-allowed" : "pointer", opacity: historyIndex < 0 ? 0.3 : 1 }}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: controlSize, height: controlSize, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)", border: 0, cursor: historyIndex < 0 ? "not-allowed" : "pointer", opacity: historyIndex < 0 ? 0.3 : 1 }}
       >
-        <Undo2 size={18} />
+        <Undo2 size={isMobileFocusMode && isMobile ? 16 : 18} />
       </button>
       <button
         onClick={redo}
         disabled={historyIndex >= history.length - 1}
         title="Vor"
         aria-label="Vor"
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)", border: 0, cursor: historyIndex >= history.length - 1 ? "not-allowed" : "pointer", opacity: historyIndex >= history.length - 1 ? 0.3 : 1 }}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: controlSize, height: controlSize, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)", border: 0, cursor: historyIndex >= history.length - 1 ? "not-allowed" : "pointer", opacity: historyIndex >= history.length - 1 ? 0.3 : 1 }}
       >
-        <Redo2 size={18} />
+        <Redo2 size={isMobileFocusMode && isMobile ? 16 : 18} />
       </button>
       <button
         onClick={resetAll}
         title="Alle aus"
         aria-label="Alle aus"
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)", border: 0, cursor: "pointer" }}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: controlSize, height: controlSize, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)", border: 0, cursor: "pointer" }}
       >
-        <Trash2 size={18} />
+        <Trash2 size={isMobileFocusMode && isMobile ? 16 : 18} />
       </button>
       <button
         onClick={saveCurrentPattern}
         title="Motiv speichern"
         aria-label="Motiv speichern"
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.9)", border: 0, cursor: "pointer" }}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: controlSize, height: controlSize, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.9)", border: 0, cursor: "pointer" }}
       >
-        <Save size={18} />
+        <Save size={isMobileFocusMode && isMobile ? 16 : 18} />
       </button>
       <button
         onClick={() => setIsEraserMode((v) => !v)}
         title={isEraserMode ? "Radiergummi an" : "Radiergummi aus"}
         aria-label={isEraserMode ? "Radiergummi an" : "Radiergummi aus"}
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: isEraserMode ? "rgba(255,120,120,0.25)" : "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.9)", border: 0, cursor: "pointer" }}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: controlSize, height: controlSize, borderRadius: 8, background: isEraserMode ? "rgba(255,120,120,0.25)" : "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.9)", border: 0, cursor: "pointer" }}
       >
-        <Eraser size={18} />
+        <Eraser size={isMobileFocusMode && isMobile ? 16 : 18} />
       </button>
       <button
         onClick={toggleFullscreenMode}
         title={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
         aria-label={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.9)", border: 0, cursor: "pointer" }}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: controlSize, height: controlSize, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.9)", border: 0, cursor: "pointer" }}
       >
-        {isMobileFocusMode ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+        {isMobileFocusMode ? <Minimize2 size={isMobileFocusMode && isMobile ? 16 : 18} /> : <Maximize2 size={isMobileFocusMode && isMobile ? 16 : 18} />}
       </button>
     </>
   );
@@ -694,11 +697,8 @@ const App = () => {
         zIndex: 135,
         display: "flex",
         flexDirection: "column",
-        gap: 6,
-        padding: 6,
-        borderRadius: 10,
-        background: "rgba(8,12,22,0.72)",
-        border: "1px solid rgba(255,255,255,0.12)",
+        gap: 5,
+        padding: 2,
         maxHeight: "72dvh",
         overflow: "hidden",
       }}
@@ -707,10 +707,28 @@ const App = () => {
         <button
           key={`mini-${pattern.id}`}
           onClick={() => loadSavedPattern(pattern.windows)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setSavedPatternMenu({ patternId: pattern.id, x: e.clientX, y: e.clientY });
+          }}
+          onPointerDown={(e) => {
+            if (e.pointerType === "mouse") return;
+            clearLongPressTimeout();
+            longPressTimeoutRef.current = window.setTimeout(() => {
+              longPressTriggeredPatternRef.current = pattern.id;
+              if (navigator.vibrate) navigator.vibrate(25);
+              setSavedPatternMenu({ patternId: pattern.id, x: e.clientX, y: e.clientY });
+              longPressTimeoutRef.current = null;
+            }, 550);
+          }}
+          onPointerUp={() => clearLongPressTimeout()}
+          onPointerCancel={() => clearLongPressTimeout()}
+          onPointerLeave={() => clearLongPressTimeout()}
           style={{
             width: 36,
             height: 64,
-            border: "1px solid rgba(255,255,255,0.16)",
+            border: 0,
             borderRadius: 6,
             background: "rgba(6,10,20,0.9)",
             padding: 0,
@@ -726,6 +744,29 @@ const App = () => {
               draggable={false}
               style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.86) contrast(1.08)" }}
             />
+            {pattern.windows.flatMap((row, ri) =>
+              row.map((lit, ci) => {
+                if (!lit) return null;
+                const pos = getWindowPos(ri, ci, columns);
+                const size = getWindowSize(ci, columns);
+                return (
+                  <div
+                    key={`mini-lit-${pattern.id}-${ri}-${ci}`}
+                    style={{
+                      position: "absolute",
+                      left: `${pos.x}%`,
+                      top: `${pos.y}%`,
+                      width: `${size.w}%`,
+                      height: `${size.h}%`,
+                      transform: "translate(-50%, -50%)",
+                      background:
+                        "radial-gradient(ellipse, rgba(255,235,160,0.95) 0%, rgba(255,210,80,0.7) 60%, rgba(255,180,40,0.3) 100%)",
+                      boxShadow: "0 0 4px 1px rgba(255,220,100,0.45)",
+                    }}
+                  />
+                );
+              })
+            )}
           </div>
         </button>
       ))}
@@ -859,9 +900,6 @@ const App = () => {
               flexDirection: "column",
               gap: 10,
               padding: 8,
-              borderRadius: 12,
-              background: "rgba(8,12,22,0.72)",
-              border: "1px solid rgba(255,255,255,0.12)",
             }}
           >
             {controlsPanel}
@@ -1125,7 +1163,7 @@ const App = () => {
       )}
 
       {!(isMobileFocusMode && isMobile) && (
-        <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: isMobileFocusMode && !isMobile ? 4 : isMobileFocusMode ? 8 : 12, marginLeft: isMobile ? 0 : 166 }}>
+        <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: isMobileFocusMode && !isMobile ? 4 : isMobileFocusMode ? 8 : 12, marginBottom: isMobileFocusMode && !isMobile ? 6 : 0, marginLeft: isMobile ? 0 : 166 }}>
           {litCount} von {ROWS * COLS} Fenster beleuchtet
           {hasSelection && " · Bereich ausgewaehlt (Doppelklick + Ziehen)"}
         </p>
