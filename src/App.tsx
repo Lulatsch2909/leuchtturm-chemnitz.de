@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Undo2, Redo2, Trash2, Eraser, Save } from "lucide-react";
+import { Undo2, Redo2, Trash2, Eraser, Save, Maximize2, Minimize2, PanelLeft } from "lucide-react";
 
 const buildingImg = "/kongress-hotel-nacht.png";
 
@@ -105,6 +105,8 @@ const App = () => {
   const [savedPatterns, setSavedPatterns] = useState<SavedPattern[]>([]);
   const [nextPatternId, setNextPatternId] = useState(1);
   const [savedPatternMenu, setSavedPatternMenu] = useState<SavedPatternMenu>(null);
+  const [isMobileFocusMode, setIsMobileFocusMode] = useState(false);
+  const [isMobileSavedDrawerOpen, setIsMobileSavedDrawerOpen] = useState(false);
   const imageRef = useRef<HTMLDivElement>(null);
   const paintStartWindows = useRef<boolean[][] | null>(null);
   const paintStartCell = useRef<{ row: number; col: number } | null>(null);
@@ -113,6 +115,7 @@ const App = () => {
   const pendingClickToggleTimeout = useRef<number | null>(null);
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredPatternRef = useRef<number | null>(null);
+  const swipeStartXRef = useRef<number | null>(null);
 
   const pushHistory = useCallback(
     (prev: boolean[][], next: boolean[][]) => {
@@ -295,10 +298,38 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!isPainting && !isSelecting) return;
+      const target = document
+        .elementFromPoint(e.clientX, e.clientY)
+        ?.closest<HTMLButtonElement>("[data-cell='1']");
+      if (!target) return;
+      const rowAttr = target.getAttribute("data-row");
+      const colAttr = target.getAttribute("data-col");
+      if (rowAttr === null || colAttr === null) return;
+      const row = Number(rowAttr);
+      const col = Number(colAttr);
+      if (Number.isNaN(row) || Number.isNaN(col)) return;
+      handleLeftEnter(row, col);
+      handleSelectionEnter(row, col);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    return () => window.removeEventListener("pointermove", handlePointerMove);
+  }, [handleLeftEnter, handleSelectionEnter, isPainting, isSelecting]);
+
+  useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setIsMobileFocusMode(false);
+      setIsMobileSavedDrawerOpen(false);
+    }
+  }, [isMobile]);
 
   const undo = useCallback(() => {
     if (historyIndex < 0) return;
@@ -383,6 +414,8 @@ const App = () => {
 
   const litCount = windows.flat().filter(Boolean).length;
   const hasSelection = selection && (selection.startRow !== selection.endRow || selection.startCol !== selection.endCol);
+  const showDesktopSavedList = !isMobile || !isMobileFocusMode;
+  const showMobileSavedDrawer = isMobile && isMobileFocusMode;
   const exportAnchors = useCallback(() => {
     const text = JSON.stringify(columns, null, 2);
     if (navigator.clipboard?.writeText) {
@@ -393,32 +426,238 @@ const App = () => {
     window.prompt("Ankerpunkte kopieren:", text);
   }, [columns]);
 
+  const handleFocusTouchStart = useCallback(
+    (e: React.TouchEvent<HTMLDivElement>) => {
+      if (!showMobileSavedDrawer) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      if (touch.clientX <= 24 || isMobileSavedDrawerOpen) {
+        swipeStartXRef.current = touch.clientX;
+      } else {
+        swipeStartXRef.current = null;
+      }
+    },
+    [isMobileSavedDrawerOpen, showMobileSavedDrawer]
+  );
+
+  const handleFocusTouchMove = useCallback(
+    (e: React.TouchEvent<HTMLDivElement>) => {
+      if (!showMobileSavedDrawer || swipeStartXRef.current === null) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const delta = touch.clientX - swipeStartXRef.current;
+      if (!isMobileSavedDrawerOpen && delta > 48) {
+        setIsMobileSavedDrawerOpen(true);
+        swipeStartXRef.current = null;
+      }
+      if (isMobileSavedDrawerOpen && delta < -48) {
+        setIsMobileSavedDrawerOpen(false);
+        swipeStartXRef.current = null;
+      }
+    },
+    [isMobileSavedDrawerOpen, showMobileSavedDrawer]
+  );
+
+  const handleFocusTouchEnd = useCallback(() => {
+    swipeStartXRef.current = null;
+  }, []);
+
+  const savedPatternsPanel = (
+    <div
+      className="saved-patterns-scroll"
+      style={{
+        width: isMobile ? "100%" : 150,
+        maxHeight: isMobile ? "none" : "76vh",
+        overflowY: isMobile ? "hidden" : "auto",
+        overflowX: isMobile ? "auto" : "hidden",
+        whiteSpace: isMobile ? "nowrap" : "normal",
+        padding: 10,
+        borderRadius: 10,
+        background: "rgba(255,255,255,0.06)",
+        border: "1px solid rgba(255,255,255,0.12)",
+      }}
+    >
+      <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginBottom: 8 }}>Gespeichert</div>
+      {savedPatterns.length === 0 && (
+        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Noch keine Bilder</div>
+      )}
+      {savedPatterns.map((pattern) => (
+        <button
+          key={pattern.id}
+          onClick={() => {
+            if (longPressTriggeredPatternRef.current === pattern.id) {
+              longPressTriggeredPatternRef.current = null;
+              return;
+            }
+            loadSavedPattern(pattern.windows);
+            if (showMobileSavedDrawer) setIsMobileSavedDrawerOpen(false);
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            clearLongPressTimeout();
+            setSavedPatternMenu({ patternId: pattern.id, x: e.clientX, y: e.clientY });
+          }}
+          onPointerDown={(e) => {
+            if (e.pointerType === "mouse") return;
+            clearLongPressTimeout();
+            longPressTimeoutRef.current = window.setTimeout(() => {
+              longPressTriggeredPatternRef.current = pattern.id;
+              setSavedPatternMenu({ patternId: pattern.id, x: e.clientX, y: e.clientY });
+              longPressTimeoutRef.current = null;
+            }, 550);
+          }}
+          onPointerUp={() => clearLongPressTimeout()}
+          onPointerCancel={() => clearLongPressTimeout()}
+          onPointerLeave={() => clearLongPressTimeout()}
+          style={{
+            width: isMobile ? 132 : "100%",
+            display: isMobile ? "inline-block" : "block",
+            marginBottom: 8,
+            marginRight: isMobile ? 8 : 0,
+            padding: 6,
+            borderRadius: 8,
+            border: "1px solid rgba(255,255,255,0.16)",
+            background: "rgba(6,10,20,0.9)",
+            cursor: "pointer",
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            userSelect: "none",
+          }}
+          title={`Motiv ${pattern.id} laden`}
+        >
+          <div style={{ position: "relative", width: "100%", aspectRatio: "450 / 799", overflow: "hidden", borderRadius: 6 }}>
+            <img
+              src={buildingImg}
+              alt=""
+              draggable={false}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                filter: "brightness(0.78) contrast(1.12) saturate(0.92)",
+                pointerEvents: "none",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "none",
+                background:
+                  "radial-gradient(ellipse at 50% 14%, rgba(80,120,210,0.08) 0%, rgba(8,18,38,0.22) 55%, rgba(3,7,16,0.38) 100%)",
+              }}
+            />
+            {pattern.windows.flatMap((row, ri) =>
+              row.map((lit, ci) => {
+                if (!lit) return null;
+                const pos = getWindowPos(ri, ci, columns);
+                const size = getWindowSize(ci, columns);
+                return (
+                  <div
+                    key={`${pattern.id}-${ri}-${ci}`}
+                    style={{
+                      position: "absolute",
+                      left: `${pos.x}%`,
+                      top: `${pos.y}%`,
+                      width: `${size.w}%`,
+                      height: `${size.h}%`,
+                      transform: "translate(-50%, -50%)",
+                      background:
+                        "radial-gradient(ellipse, rgba(255,235,160,0.95) 0%, rgba(255,210,80,0.7) 60%, rgba(255,180,40,0.3) 100%)",
+                      boxShadow: "0 0 5px 1px rgba(255,220,100,0.45), 0 0 12px 2px rgba(255,200,60,0.2)",
+                    }}
+                  />
+                );
+              })
+            )}
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div
+      onTouchStart={handleFocusTouchStart}
+      onTouchMove={handleFocusTouchMove}
+      onTouchEnd={handleFocusTouchEnd}
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
+        justifyContent: isMobileFocusMode ? "space-between" : "center",
+        padding: isMobileFocusMode ? 10 : 16,
         userSelect: "none",
         background: "#0a0e1a",
+        position: isMobileFocusMode ? "fixed" : "relative",
+        inset: isMobileFocusMode ? 0 : undefined,
+        zIndex: isMobileFocusMode ? 100 : "auto",
+        overflow: isMobileFocusMode ? "hidden" : "visible",
       }}
     >
-      <h1
-        style={{
-          color: "rgba(255,255,255,0.8)",
-          marginBottom: 18,
-          marginLeft: isMobile ? 0 : 166,
-          letterSpacing: "0.3em",
-          textTransform: "uppercase",
-          fontSize: 14,
-          fontWeight: 300,
-        }}
-      >
-        Kongress Center Chemnitz
-      </h1>
+      {!isMobileFocusMode && (
+        <h1
+          style={{
+            color: "rgba(255,255,255,0.8)",
+            marginBottom: 18,
+            marginLeft: isMobile ? 0 : 166,
+            letterSpacing: "0.3em",
+            textTransform: "uppercase",
+            fontSize: 14,
+            fontWeight: 300,
+          }}
+        >
+          Kongress Center Chemnitz
+        </h1>
+      )}
+
+      {isMobileFocusMode && (
+        <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <button
+            onClick={() => setIsMobileSavedDrawerOpen((v) => !v)}
+            aria-label="Gespeicherte Motive"
+            title="Gespeicherte Motive"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: "rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.9)",
+              border: 0,
+              cursor: "pointer",
+            }}
+          >
+            <PanelLeft size={18} />
+          </button>
+          <button
+            onClick={() => {
+              setIsMobileFocusMode(false);
+              setIsMobileSavedDrawerOpen(false);
+            }}
+            aria-label="Vollbild verlassen"
+            title="Vollbild verlassen"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: "rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.9)",
+              border: 0,
+              cursor: "pointer",
+            }}
+          >
+            <Minimize2 size={18} />
+          </button>
+        </div>
+      )}
 
       <div
         style={{
@@ -428,119 +667,11 @@ const App = () => {
           alignItems: isMobile ? "center" : "flex-start",
           width: "min(100%, 1200px)",
           justifyContent: "center",
+          flex: isMobileFocusMode ? 1 : undefined,
+          minHeight: 0,
         }}
       >
-        <div
-          className="saved-patterns-scroll"
-          style={{
-            width: isMobile ? "100%" : 150,
-            maxHeight: isMobile ? "none" : "76vh",
-            overflowY: isMobile ? "hidden" : "auto",
-            overflowX: isMobile ? "auto" : "hidden",
-            whiteSpace: isMobile ? "nowrap" : "normal",
-            padding: 10,
-            borderRadius: 10,
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.12)",
-          }}
-        >
-          <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginBottom: 8 }}>Gespeichert</div>
-          {savedPatterns.length === 0 && (
-            <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Noch keine Bilder</div>
-          )}
-          {savedPatterns.map((pattern) => (
-            <button
-              key={pattern.id}
-              onClick={() => {
-                if (longPressTriggeredPatternRef.current === pattern.id) {
-                  longPressTriggeredPatternRef.current = null;
-                  return;
-                }
-                loadSavedPattern(pattern.windows);
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                clearLongPressTimeout();
-                setSavedPatternMenu({ patternId: pattern.id, x: e.clientX, y: e.clientY });
-              }}
-              onPointerDown={(e) => {
-                if (e.pointerType === "mouse") return;
-                clearLongPressTimeout();
-                longPressTimeoutRef.current = window.setTimeout(() => {
-                  longPressTriggeredPatternRef.current = pattern.id;
-                  setSavedPatternMenu({ patternId: pattern.id, x: e.clientX, y: e.clientY });
-                  longPressTimeoutRef.current = null;
-                }, 550);
-              }}
-              onPointerUp={() => clearLongPressTimeout()}
-              onPointerCancel={() => clearLongPressTimeout()}
-              onPointerLeave={() => clearLongPressTimeout()}
-              style={{
-                width: isMobile ? 132 : "100%",
-                display: isMobile ? "inline-block" : "block",
-                marginBottom: 8,
-                marginRight: isMobile ? 8 : 0,
-                padding: 6,
-                borderRadius: 8,
-                border: "1px solid rgba(255,255,255,0.16)",
-                background: "rgba(6,10,20,0.9)",
-                cursor: "pointer",
-                WebkitTouchCallout: "none",
-                WebkitUserSelect: "none",
-                userSelect: "none",
-              }}
-              title={`Motiv ${pattern.id} laden`}
-            >
-              <div style={{ position: "relative", width: "100%", aspectRatio: "450 / 799", overflow: "hidden", borderRadius: 6 }}>
-                <img
-                  src={buildingImg}
-                  alt=""
-                  draggable={false}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    filter: "brightness(0.78) contrast(1.12) saturate(0.92)",
-                    pointerEvents: "none",
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    pointerEvents: "none",
-                    background:
-                      "radial-gradient(ellipse at 50% 14%, rgba(80,120,210,0.08) 0%, rgba(8,18,38,0.22) 55%, rgba(3,7,16,0.38) 100%)",
-                  }}
-                />
-                {pattern.windows.flatMap((row, ri) =>
-                  row.map((lit, ci) => {
-                    if (!lit) return null;
-                    const pos = getWindowPos(ri, ci, columns);
-                    const size = getWindowSize(ci, columns);
-                    return (
-                      <div
-                        key={`${pattern.id}-${ri}-${ci}`}
-                        style={{
-                          position: "absolute",
-                          left: `${pos.x}%`,
-                          top: `${pos.y}%`,
-                          width: `${size.w}%`,
-                          height: `${size.h}%`,
-                          transform: "translate(-50%, -50%)",
-                          background:
-                            "radial-gradient(ellipse, rgba(255,235,160,0.95) 0%, rgba(255,210,80,0.7) 60%, rgba(255,180,40,0.3) 100%)",
-                          boxShadow: "0 0 5px 1px rgba(255,220,100,0.45), 0 0 12px 2px rgba(255,200,60,0.2)",
-                        }}
-                      />
-                    );
-                  })
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
+        {showDesktopSavedList && savedPatternsPanel}
         {savedPatternMenu && (
           <div
             style={{
@@ -577,6 +708,35 @@ const App = () => {
           </div>
         )}
 
+        {showMobileSavedDrawer && (
+          <>
+            {isMobileSavedDrawerOpen && (
+              <div
+                onClick={() => setIsMobileSavedDrawerOpen(false)}
+                style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 120 }}
+              />
+            )}
+            <div
+              style={{
+                position: "fixed",
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: "82vw",
+                maxWidth: 320,
+                background: "rgba(8,12,22,0.98)",
+                borderRight: "1px solid rgba(255,255,255,0.14)",
+                zIndex: 130,
+                transform: isMobileSavedDrawerOpen ? "translateX(0)" : "translateX(-104%)",
+                transition: "transform 180ms ease",
+                padding: 12,
+              }}
+            >
+              {savedPatternsPanel}
+            </div>
+          </>
+        )}
+
         <div
           style={{ position: "relative", display: "inline-block" }}
           ref={imageRef}
@@ -588,7 +748,11 @@ const App = () => {
           style={{
             display: "block",
             width: "auto",
-            height: isMobile ? "min(62vh, 560px)" : "min(82vh, 750px)",
+            height: isMobile
+              ? "min(62vh, 560px)"
+              : isMobileFocusMode
+                ? "min(90vh, 900px)"
+                : "min(82vh, 750px)",
             filter: "brightness(0.78) contrast(1.12) saturate(0.92) drop-shadow(0 8px 22px rgba(0,0,0,0.45))",
           }}
           draggable={false}
@@ -669,6 +833,9 @@ const App = () => {
               return (
                 <button
                   key={`${ri}-${ci}`}
+                  data-cell="1"
+                  data-row={ri}
+                  data-col={ci}
                   onPointerDown={(e) => {
                     if (e.button !== 0) return;
                     // Start selection on second click while mouse is held.
@@ -744,7 +911,7 @@ const App = () => {
           display: "flex",
           alignItems: "center",
           gap: 12,
-          marginTop: 24,
+          marginTop: isMobileFocusMode ? 6 : 24,
           flexWrap: "wrap",
           justifyContent: "center",
           marginLeft: isMobile ? 0 : 166,
@@ -814,6 +981,28 @@ const App = () => {
         >
           <Eraser size={18} />
         </button>
+        <button
+          onClick={() => {
+            setIsMobileFocusMode((v) => !v);
+            setIsMobileSavedDrawerOpen(false);
+          }}
+          title={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
+          aria-label={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            borderRadius: 8,
+            background: "rgba(255,255,255,0.1)",
+            color: "rgba(255,255,255,0.9)",
+            border: 0,
+            cursor: "pointer",
+          }}
+        >
+          {isMobileFocusMode ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+        </button>
 
       </div>
 
@@ -864,7 +1053,7 @@ const App = () => {
         </div>
       )}
 
-      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 12, marginLeft: isMobile ? 0 : 166 }}>
+      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: isMobileFocusMode ? 8 : 12, marginLeft: isMobile ? 0 : 166 }}>
         {litCount} von {ROWS * COLS} Fenster beleuchtet
         {hasSelection && " · Bereich ausgewaehlt (Doppelklick + Ziehen)"}
       </p>
