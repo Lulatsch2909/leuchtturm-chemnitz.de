@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Undo2, Redo2, Trash2, Eraser, Save, Maximize2, Minimize2, PanelLeft } from "lucide-react";
+import { Undo2, Redo2, Trash2, Eraser, Save, Maximize2, Minimize2 } from "lucide-react";
 
 const buildingImg = "/kongress-hotel-nacht.png";
 
@@ -107,7 +107,6 @@ const App = () => {
   const [savedPatternMenu, setSavedPatternMenu] = useState<SavedPatternMenu>(null);
   const [isMobileFocusMode, setIsMobileFocusMode] = useState(false);
   const [isMobileSavedDrawerOpen, setIsMobileSavedDrawerOpen] = useState(false);
-  const [isMobileControlsDrawerOpen, setIsMobileControlsDrawerOpen] = useState(false);
   const imageRef = useRef<HTMLDivElement>(null);
   const paintStartWindows = useRef<boolean[][] | null>(null);
   const paintStartCell = useRef<{ row: number; col: number } | null>(null);
@@ -117,7 +116,8 @@ const App = () => {
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredPatternRef = useRef<number | null>(null);
   const swipeStartXRef = useRef<number | null>(null);
-  const swipeEdgeRef = useRef<"left" | "right" | null>(null);
+  const swipeStartYRef = useRef<number | null>(null);
+  const swipeEdgeRef = useRef<"left" | "top" | null>(null);
 
   const pushHistory = useCallback(
     (prev: boolean[][], next: boolean[][]) => {
@@ -330,7 +330,6 @@ const App = () => {
     if (!isMobile) {
       setIsMobileFocusMode(false);
       setIsMobileSavedDrawerOpen(false);
-      setIsMobileControlsDrawerOpen(false);
     }
   }, [isMobile]);
 
@@ -444,55 +443,54 @@ const App = () => {
       if (!showMobileSavedDrawer) return;
       const touch = e.touches[0];
       if (!touch) return;
-      const viewportW = window.innerWidth;
-      if (touch.clientX <= 24 || isMobileSavedDrawerOpen) {
+      if (touch.clientY <= 26) {
+        swipeStartYRef.current = touch.clientY;
+        swipeEdgeRef.current = "top";
+      } else if (touch.clientX <= 24 || isMobileSavedDrawerOpen) {
         swipeStartXRef.current = touch.clientX;
         swipeEdgeRef.current = "left";
-      } else if (touch.clientX >= viewportW - 24 || isMobileControlsDrawerOpen) {
-        swipeStartXRef.current = touch.clientX;
-        swipeEdgeRef.current = "right";
       } else {
         swipeStartXRef.current = null;
+        swipeStartYRef.current = null;
         swipeEdgeRef.current = null;
       }
     },
-    [isMobileControlsDrawerOpen, isMobileSavedDrawerOpen, showMobileSavedDrawer]
+    [isMobileSavedDrawerOpen, showMobileSavedDrawer]
   );
 
   const handleFocusTouchMove = useCallback(
     (e: React.TouchEvent<HTMLDivElement>) => {
-      if (!showMobileSavedDrawer || swipeStartXRef.current === null) return;
+      if (!showMobileSavedDrawer || swipeEdgeRef.current === null) return;
       const touch = e.touches[0];
       if (!touch) return;
-      const delta = touch.clientX - swipeStartXRef.current;
+      const deltaX = swipeStartXRef.current === null ? 0 : touch.clientX - swipeStartXRef.current;
+      const deltaY = swipeStartYRef.current === null ? 0 : touch.clientY - swipeStartYRef.current;
       if (swipeEdgeRef.current === "left") {
-        if (!isMobileSavedDrawerOpen && delta > 48) {
+        if (!isMobileSavedDrawerOpen && deltaX > 48) {
           setIsMobileSavedDrawerOpen(true);
-          setIsMobileControlsDrawerOpen(false);
           swipeStartXRef.current = null;
         }
-        if (isMobileSavedDrawerOpen && delta < -48) {
+        if (isMobileSavedDrawerOpen && deltaX < -48) {
           setIsMobileSavedDrawerOpen(false);
           swipeStartXRef.current = null;
         }
       }
-      if (swipeEdgeRef.current === "right") {
-        if (!isMobileControlsDrawerOpen && delta < -48) {
-          setIsMobileControlsDrawerOpen(true);
-          setIsMobileSavedDrawerOpen(false);
-          swipeStartXRef.current = null;
+      if (swipeEdgeRef.current === "top" && deltaY > 90) {
+        if (document.fullscreenElement) {
+          void document.exitFullscreen();
         }
-        if (isMobileControlsDrawerOpen && delta > 48) {
-          setIsMobileControlsDrawerOpen(false);
-          swipeStartXRef.current = null;
-        }
+        setIsMobileFocusMode(false);
+        setIsMobileSavedDrawerOpen(false);
+        swipeStartYRef.current = null;
+        swipeEdgeRef.current = null;
       }
     },
-    [isMobileControlsDrawerOpen, isMobileSavedDrawerOpen, showMobileSavedDrawer]
+    [isMobileSavedDrawerOpen, showMobileSavedDrawer]
   );
 
   const handleFocusTouchEnd = useCallback(() => {
     swipeStartXRef.current = null;
+    swipeStartYRef.current = null;
     swipeEdgeRef.current = null;
   }, []);
 
@@ -502,12 +500,10 @@ const App = () => {
       await document.exitFullscreen();
       setIsMobileFocusMode(false);
       setIsMobileSavedDrawerOpen(false);
-      setIsMobileControlsDrawerOpen(false);
       return;
     }
     setIsMobileFocusMode(true);
     setIsMobileSavedDrawerOpen(false);
-    setIsMobileControlsDrawerOpen(false);
     if (root.requestFullscreen) {
       try {
         await root.requestFullscreen();
@@ -688,6 +684,54 @@ const App = () => {
     </>
   );
 
+  const mobileMiniSavedRail = (
+    <div
+      style={{
+        position: "fixed",
+        left: 8,
+        top: "50%",
+        transform: "translateY(-50%)",
+        zIndex: 135,
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        padding: 6,
+        borderRadius: 10,
+        background: "rgba(8,12,22,0.72)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        maxHeight: "72dvh",
+        overflow: "hidden",
+      }}
+    >
+      {savedPatterns.slice(0, 8).map((pattern) => (
+        <button
+          key={`mini-${pattern.id}`}
+          onClick={() => loadSavedPattern(pattern.windows)}
+          style={{
+            width: 36,
+            height: 64,
+            border: "1px solid rgba(255,255,255,0.16)",
+            borderRadius: 6,
+            background: "rgba(6,10,20,0.9)",
+            padding: 0,
+            cursor: "pointer",
+            overflow: "hidden",
+          }}
+          title={`Motiv ${pattern.id} laden`}
+        >
+          <div style={{ position: "relative", width: "100%", height: "100%" }}>
+            <img
+              src={buildingImg}
+              alt=""
+              draggable={false}
+              style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.86) contrast(1.08)" }}
+            />
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div
       onTouchStart={handleFocusTouchStart}
@@ -706,79 +750,25 @@ const App = () => {
         inset: isMobileFocusMode ? 0 : undefined,
         zIndex: isMobileFocusMode ? 100 : "auto",
         overflow: isMobileFocusMode ? "hidden" : "visible",
-        transition: "padding 260ms ease, background 260ms ease",
       }}
     >
       {(!isMobileFocusMode || !isMobile) && (
         <h1
           style={{
             color: "rgba(255,255,255,0.8)",
-            marginBottom: isMobileFocusMode && !isMobile ? 0 : 18,
+            marginBottom: 18,
             marginLeft: isMobile ? 0 : 166,
             letterSpacing: "0.3em",
             textTransform: "uppercase",
             fontSize: 14,
             fontWeight: 300,
-            position: isMobileFocusMode && !isMobile ? "fixed" : "relative",
-            left: isMobileFocusMode && !isMobile ? 14 : undefined,
-            top: isMobileFocusMode && !isMobile ? 14 : undefined,
-            zIndex: isMobileFocusMode && !isMobile ? 140 : undefined,
-            transform: isMobileFocusMode && !isMobile ? "translateY(0)" : "none",
-            transition: "all 260ms ease",
           }}
         >
           Kongress Center Chemnitz
         </h1>
       )}
 
-      {isMobileFocusMode && isMobile && (
-        <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <button
-            onClick={() => {
-              setIsMobileSavedDrawerOpen((v) => !v);
-              setIsMobileControlsDrawerOpen(false);
-            }}
-            aria-label="Gespeicherte Motive"
-            title="Gespeicherte Motive"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 40,
-              height: 40,
-              borderRadius: 8,
-              background: "rgba(255,255,255,0.12)",
-              color: "rgba(255,255,255,0.9)",
-              border: 0,
-              cursor: "pointer",
-            }}
-          >
-            <PanelLeft size={18} />
-          </button>
-          <button
-            onClick={() => {
-              setIsMobileControlsDrawerOpen((v) => !v);
-              setIsMobileSavedDrawerOpen(false);
-            }}
-            aria-label="Werkzeuge"
-            title="Werkzeuge"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 40,
-              height: 40,
-              borderRadius: 8,
-              background: "rgba(255,255,255,0.12)",
-              color: "rgba(255,255,255,0.9)",
-              border: 0,
-              cursor: "pointer",
-            }}
-          >
-            <PanelLeft size={18} style={{ transform: "scaleX(-1)" }} />
-          </button>
-        </div>
-      )}
+      {isMobileFocusMode && isMobile && mobileMiniSavedRail}
 
       <div
         style={{
@@ -790,7 +780,6 @@ const App = () => {
           justifyContent: "center",
           flex: isMobileFocusMode ? 1 : undefined,
           minHeight: 0,
-          transition: "all 260ms ease",
         }}
       >
         {showDesktopSavedList && savedPatternsPanel}
@@ -858,35 +847,25 @@ const App = () => {
             </div>
           </>
         )}
-        {showMobileSavedDrawer && (
-          <>
-            {isMobileControlsDrawerOpen && (
-              <div
-                onClick={() => setIsMobileControlsDrawerOpen(false)}
-                style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 120 }}
-              />
-            )}
-            <div
-              style={{
-                position: "fixed",
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: 84,
-                background: "rgba(8,12,22,0.98)",
-                borderLeft: "1px solid rgba(255,255,255,0.14)",
-                zIndex: 130,
-                transform: isMobileControlsDrawerOpen ? "translateX(0)" : "translateX(104%)",
-                transition: "transform 180ms ease",
-                padding: 12,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{controlsPanel}</div>
-            </div>
-          </>
+        {isMobileFocusMode && isMobile && (
+          <div
+            style={{
+              position: "fixed",
+              right: 8,
+              top: "50%",
+              transform: "translateY(-50%)",
+              zIndex: 135,
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              padding: 8,
+              borderRadius: 12,
+              background: "rgba(8,12,22,0.72)",
+              border: "1px solid rgba(255,255,255,0.12)",
+            }}
+          >
+            {controlsPanel}
+          </div>
         )}
 
         <div
@@ -906,11 +885,11 @@ const App = () => {
             display: "block",
             width: "auto",
             height: isMobileFocusMode && isMobile
-              ? "calc(100dvh - 56px)"
+              ? "100dvh"
               : isMobile
                 ? "min(62vh, 560px)"
               : isMobileFocusMode
-                ? "min(86vh, 799px)"
+                ? "95dvh"
                 : "min(82vh, 750px)",
             maxWidth: isMobileFocusMode && isMobile ? "100vw" : "100%",
             filter:
@@ -1066,9 +1045,23 @@ const App = () => {
             })
           )}
         </div>
+        {!isMobile && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              marginLeft: 10,
+              padding: 8,
+              alignSelf: "center",
+            }}
+          >
+            {controlsPanel}
+          </div>
+        )}
       </div>
 
-      {(!isMobileFocusMode || !isMobile) && (
+      {(!isMobileFocusMode || !isMobile) && isMobile && (
         <div
           style={{
             display: "flex",
@@ -1078,13 +1071,6 @@ const App = () => {
             flexWrap: "wrap",
             justifyContent: "center",
             marginLeft: isMobile ? 0 : 166,
-            position: isMobileFocusMode && !isMobile ? "fixed" : "relative",
-            right: isMobileFocusMode && !isMobile ? 14 : undefined,
-            top: isMobileFocusMode && !isMobile ? "50%" : undefined,
-            transform: isMobileFocusMode && !isMobile ? "translateY(-50%)" : undefined,
-            zIndex: isMobileFocusMode && !isMobile ? 140 : undefined,
-            flexDirection: isMobileFocusMode && !isMobile ? "column" : "row",
-            transition: "all 260ms ease",
           }}
         >
           {controlsPanel}
@@ -1139,10 +1125,29 @@ const App = () => {
       )}
 
       {!(isMobileFocusMode && isMobile) && (
-        <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: isMobileFocusMode ? 8 : 12, marginLeft: isMobile ? 0 : 166, transition: "all 260ms ease" }}>
+        <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: isMobileFocusMode && !isMobile ? 4 : isMobileFocusMode ? 8 : 12, marginLeft: isMobile ? 0 : 166 }}>
           {litCount} von {ROWS * COLS} Fenster beleuchtet
           {hasSelection && " · Bereich ausgewaehlt (Doppelklick + Ziehen)"}
         </p>
+      )}
+      {isMobileFocusMode && isMobile && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 10,
+            left: "50%",
+            transform: "translateX(-50%)",
+            padding: "6px 10px",
+            borderRadius: 999,
+            background: "rgba(8,12,22,0.7)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            color: "rgba(255,255,255,0.85)",
+            fontSize: 12,
+            zIndex: 136,
+          }}
+        >
+          {litCount} von {ROWS * COLS} beleuchtet
+        </div>
       )}
     </div>
   );
