@@ -100,6 +100,7 @@ const App = () => {
   const [showGrid] = useState(() =>
     new URLSearchParams(window.location.search).has("config")
   );
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900);
   const [isEraserMode, setIsEraserMode] = useState(false);
   const [savedPatterns, setSavedPatterns] = useState<SavedPattern[]>([]);
   const [nextPatternId, setNextPatternId] = useState(1);
@@ -110,6 +111,8 @@ const App = () => {
   const paintStartedFromLit = useRef(false);
   const paintMoved = useRef(false);
   const pendingClickToggleTimeout = useRef<number | null>(null);
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const longPressTriggeredPatternRef = useRef<number | null>(null);
 
   const pushHistory = useCallback(
     (prev: boolean[][], next: boolean[][]) => {
@@ -127,6 +130,13 @@ const App = () => {
     if (pendingClickToggleTimeout.current !== null) {
       window.clearTimeout(pendingClickToggleTimeout.current);
       pendingClickToggleTimeout.current = null;
+    }
+  }, []);
+
+  const clearLongPressTimeout = useCallback(() => {
+    if (longPressTimeoutRef.current !== null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
     }
   }, []);
 
@@ -275,7 +285,19 @@ const App = () => {
       setIsSelecting(false);
     };
     window.addEventListener("mouseup", handler);
-    return () => window.removeEventListener("mouseup", handler);
+    window.addEventListener("pointerup", handler);
+    window.addEventListener("pointercancel", handler);
+    return () => {
+      window.removeEventListener("mouseup", handler);
+      window.removeEventListener("pointerup", handler);
+      window.removeEventListener("pointercancel", handler);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 900);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   const undo = useCallback(() => {
@@ -334,7 +356,13 @@ const App = () => {
     };
   }, []);
 
-  useEffect(() => () => clearPendingClickToggle(), [clearPendingClickToggle]);
+  useEffect(
+    () => () => {
+      clearPendingClickToggle();
+      clearLongPressTimeout();
+    },
+    [clearLongPressTimeout, clearPendingClickToggle]
+  );
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -382,7 +410,7 @@ const App = () => {
         style={{
           color: "rgba(255,255,255,0.8)",
           marginBottom: 18,
-          marginLeft: 166,
+          marginLeft: isMobile ? 0 : 166,
           letterSpacing: "0.3em",
           textTransform: "uppercase",
           fontSize: 14,
@@ -392,13 +420,24 @@ const App = () => {
         Kongress Center Chemnitz
       </h1>
 
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start", width: "min(100%, 1200px)", justifyContent: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 16,
+          flexDirection: isMobile ? "column" : "row",
+          alignItems: isMobile ? "stretch" : "flex-start",
+          width: "min(100%, 1200px)",
+          justifyContent: "center",
+        }}
+      >
         <div
           className="saved-patterns-scroll"
           style={{
-            width: 150,
-            maxHeight: "76vh",
-            overflowY: "auto",
+            width: isMobile ? "100%" : 150,
+            maxHeight: isMobile ? "none" : "76vh",
+            overflowY: isMobile ? "hidden" : "auto",
+            overflowX: isMobile ? "auto" : "hidden",
+            whiteSpace: isMobile ? "nowrap" : "normal",
             padding: 10,
             borderRadius: 10,
             background: "rgba(255,255,255,0.06)",
@@ -412,15 +451,36 @@ const App = () => {
           {savedPatterns.map((pattern) => (
             <button
               key={pattern.id}
-              onClick={() => loadSavedPattern(pattern.windows)}
+              onClick={() => {
+                if (longPressTriggeredPatternRef.current === pattern.id) {
+                  longPressTriggeredPatternRef.current = null;
+                  return;
+                }
+                loadSavedPattern(pattern.windows);
+              }}
               onContextMenu={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                clearLongPressTimeout();
                 setSavedPatternMenu({ patternId: pattern.id, x: e.clientX, y: e.clientY });
               }}
+              onPointerDown={(e) => {
+                if (e.pointerType === "mouse") return;
+                clearLongPressTimeout();
+                longPressTimeoutRef.current = window.setTimeout(() => {
+                  longPressTriggeredPatternRef.current = pattern.id;
+                  setSavedPatternMenu({ patternId: pattern.id, x: e.clientX, y: e.clientY });
+                  longPressTimeoutRef.current = null;
+                }, 550);
+              }}
+              onPointerUp={() => clearLongPressTimeout()}
+              onPointerCancel={() => clearLongPressTimeout()}
+              onPointerLeave={() => clearLongPressTimeout()}
               style={{
-                width: "100%",
+                width: isMobile ? 132 : "100%",
+                display: isMobile ? "inline-block" : "block",
                 marginBottom: 8,
+                marginRight: isMobile ? 8 : 0,
                 padding: 6,
                 borderRadius: 8,
                 border: "1px solid rgba(255,255,255,0.16)",
@@ -513,7 +573,11 @@ const App = () => {
           </div>
         )}
 
-        <div style={{ position: "relative", display: "inline-block" }} ref={imageRef} onContextMenu={handleContextMenu}>
+        <div
+          style={{ position: "relative", display: "inline-block", touchAction: "none" }}
+          ref={imageRef}
+          onContextMenu={handleContextMenu}
+        >
         <img
           src={buildingImg}
           alt="Kongress Center Chemnitz bei Nacht"
@@ -601,10 +665,10 @@ const App = () => {
               return (
                 <button
                   key={`${ri}-${ci}`}
-                  onMouseDown={(e) => {
+                  onPointerDown={(e) => {
                     if (e.button !== 0) return;
                     // Start selection on second click while mouse is held.
-                    if (e.detail >= 2) {
+                    if (e.pointerType === "mouse" && e.detail >= 2) {
                       e.preventDefault();
                       if (isPainting) {
                         setIsPainting(false);
@@ -618,11 +682,11 @@ const App = () => {
                     }
                     handleLeftDown(ri, ci);
                   }}
-                  onMouseEnter={() => {
+                  onPointerEnter={() => {
                     handleLeftEnter(ri, ci);
                     handleSelectionEnter(ri, ci);
                   }}
-                  onMouseUp={() => {
+                  onPointerUp={() => {
                     handleLeftUp();
                     handleSelectionUp();
                   }}
@@ -637,6 +701,7 @@ const App = () => {
                     background: "transparent",
                     border: 0,
                     padding: 0,
+                    touchAction: "none",
                     zIndex: selected ? 3 : 1,
                   }}
                   aria-label={`Fenster Reihe ${ri + 1}, Spalte ${ci + 1} – ${lit ? "an" : "aus"}`}
@@ -670,7 +735,17 @@ const App = () => {
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 24, flexWrap: "wrap", justifyContent: "center", marginLeft: 166 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginTop: 24,
+          flexWrap: "wrap",
+          justifyContent: "center",
+          marginLeft: isMobile ? 0 : 166,
+        }}
+      >
         <button
           onClick={undo}
           disabled={historyIndex < 0}
@@ -743,7 +818,7 @@ const App = () => {
           style={{
             marginTop: 14,
             width: "min(100%, 860px)",
-            marginLeft: 166,
+            marginLeft: isMobile ? 0 : 166,
             border: "1px solid rgba(255,255,255,0.18)",
             borderRadius: 10,
             padding: 12,
@@ -785,7 +860,7 @@ const App = () => {
         </div>
       )}
 
-      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 12, marginLeft: 166 }}>
+      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 12, marginLeft: isMobile ? 0 : 166 }}>
         {litCount} von {ROWS * COLS} Fenster beleuchtet
         {hasSelection && " · Bereich ausgewaehlt (Doppelklick + Ziehen)"}
       </p>
