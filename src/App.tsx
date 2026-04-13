@@ -107,6 +107,7 @@ const App = () => {
   const [savedPatternMenu, setSavedPatternMenu] = useState<SavedPatternMenu>(null);
   const [isMobileFocusMode, setIsMobileFocusMode] = useState(false);
   const [isMobileSavedDrawerOpen, setIsMobileSavedDrawerOpen] = useState(false);
+  const [isMobileControlsDrawerOpen, setIsMobileControlsDrawerOpen] = useState(false);
   const imageRef = useRef<HTMLDivElement>(null);
   const paintStartWindows = useRef<boolean[][] | null>(null);
   const paintStartCell = useRef<{ row: number; col: number } | null>(null);
@@ -116,6 +117,7 @@ const App = () => {
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredPatternRef = useRef<number | null>(null);
   const swipeStartXRef = useRef<number | null>(null);
+  const swipeEdgeRef = useRef<"left" | "right" | null>(null);
 
   const pushHistory = useCallback(
     (prev: boolean[][], next: boolean[][]) => {
@@ -328,6 +330,7 @@ const App = () => {
     if (!isMobile) {
       setIsMobileFocusMode(false);
       setIsMobileSavedDrawerOpen(false);
+      setIsMobileControlsDrawerOpen(false);
     }
   }, [isMobile]);
 
@@ -441,13 +444,19 @@ const App = () => {
       if (!showMobileSavedDrawer) return;
       const touch = e.touches[0];
       if (!touch) return;
+      const viewportW = window.innerWidth;
       if (touch.clientX <= 24 || isMobileSavedDrawerOpen) {
         swipeStartXRef.current = touch.clientX;
+        swipeEdgeRef.current = "left";
+      } else if (touch.clientX >= viewportW - 24 || isMobileControlsDrawerOpen) {
+        swipeStartXRef.current = touch.clientX;
+        swipeEdgeRef.current = "right";
       } else {
         swipeStartXRef.current = null;
+        swipeEdgeRef.current = null;
       }
     },
-    [isMobileSavedDrawerOpen, showMobileSavedDrawer]
+    [isMobileControlsDrawerOpen, isMobileSavedDrawerOpen, showMobileSavedDrawer]
   );
 
   const handleFocusTouchMove = useCallback(
@@ -456,20 +465,35 @@ const App = () => {
       const touch = e.touches[0];
       if (!touch) return;
       const delta = touch.clientX - swipeStartXRef.current;
-      if (!isMobileSavedDrawerOpen && delta > 48) {
-        setIsMobileSavedDrawerOpen(true);
-        swipeStartXRef.current = null;
+      if (swipeEdgeRef.current === "left") {
+        if (!isMobileSavedDrawerOpen && delta > 48) {
+          setIsMobileSavedDrawerOpen(true);
+          setIsMobileControlsDrawerOpen(false);
+          swipeStartXRef.current = null;
+        }
+        if (isMobileSavedDrawerOpen && delta < -48) {
+          setIsMobileSavedDrawerOpen(false);
+          swipeStartXRef.current = null;
+        }
       }
-      if (isMobileSavedDrawerOpen && delta < -48) {
-        setIsMobileSavedDrawerOpen(false);
-        swipeStartXRef.current = null;
+      if (swipeEdgeRef.current === "right") {
+        if (!isMobileControlsDrawerOpen && delta < -48) {
+          setIsMobileControlsDrawerOpen(true);
+          setIsMobileSavedDrawerOpen(false);
+          swipeStartXRef.current = null;
+        }
+        if (isMobileControlsDrawerOpen && delta > 48) {
+          setIsMobileControlsDrawerOpen(false);
+          swipeStartXRef.current = null;
+        }
       }
     },
-    [isMobileSavedDrawerOpen, showMobileSavedDrawer]
+    [isMobileControlsDrawerOpen, isMobileSavedDrawerOpen, showMobileSavedDrawer]
   );
 
   const handleFocusTouchEnd = useCallback(() => {
     swipeStartXRef.current = null;
+    swipeEdgeRef.current = null;
   }, []);
 
   const toggleFullscreenMode = useCallback(async () => {
@@ -478,10 +502,12 @@ const App = () => {
       await document.exitFullscreen();
       setIsMobileFocusMode(false);
       setIsMobileSavedDrawerOpen(false);
+      setIsMobileControlsDrawerOpen(false);
       return;
     }
     setIsMobileFocusMode(true);
     setIsMobileSavedDrawerOpen(false);
+    setIsMobileControlsDrawerOpen(false);
     if (root.requestFullscreen) {
       try {
         await root.requestFullscreen();
@@ -607,6 +633,61 @@ const App = () => {
     </div>
   );
 
+  const controlsPanel = (
+    <>
+      <button
+        onClick={undo}
+        disabled={historyIndex < 0}
+        title="Zurueck"
+        aria-label="Zurueck"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)", border: 0, cursor: historyIndex < 0 ? "not-allowed" : "pointer", opacity: historyIndex < 0 ? 0.3 : 1 }}
+      >
+        <Undo2 size={18} />
+      </button>
+      <button
+        onClick={redo}
+        disabled={historyIndex >= history.length - 1}
+        title="Vor"
+        aria-label="Vor"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)", border: 0, cursor: historyIndex >= history.length - 1 ? "not-allowed" : "pointer", opacity: historyIndex >= history.length - 1 ? 0.3 : 1 }}
+      >
+        <Redo2 size={18} />
+      </button>
+      <button
+        onClick={resetAll}
+        title="Alle aus"
+        aria-label="Alle aus"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)", border: 0, cursor: "pointer" }}
+      >
+        <Trash2 size={18} />
+      </button>
+      <button
+        onClick={saveCurrentPattern}
+        title="Motiv speichern"
+        aria-label="Motiv speichern"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.9)", border: 0, cursor: "pointer" }}
+      >
+        <Save size={18} />
+      </button>
+      <button
+        onClick={() => setIsEraserMode((v) => !v)}
+        title={isEraserMode ? "Radiergummi an" : "Radiergummi aus"}
+        aria-label={isEraserMode ? "Radiergummi an" : "Radiergummi aus"}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: isEraserMode ? "rgba(255,120,120,0.25)" : "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.9)", border: 0, cursor: "pointer" }}
+      >
+        <Eraser size={18} />
+      </button>
+      <button
+        onClick={toggleFullscreenMode}
+        title={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
+        aria-label={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.9)", border: 0, cursor: "pointer" }}
+      >
+        {isMobileFocusMode ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+      </button>
+    </>
+  );
+
   return (
     <div
       onTouchStart={handleFocusTouchStart}
@@ -618,25 +699,32 @@ const App = () => {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: isMobileFocusMode ? "space-between" : "center",
-        padding: isMobileFocusMode ? 8 : 16,
+        padding: isMobileFocusMode ? (isMobile ? 0 : 8) : 16,
         userSelect: "none",
         background: "#0a0e1a",
         position: isMobileFocusMode ? "fixed" : "relative",
         inset: isMobileFocusMode ? 0 : undefined,
         zIndex: isMobileFocusMode ? 100 : "auto",
         overflow: isMobileFocusMode ? "hidden" : "visible",
+        transition: "padding 260ms ease, background 260ms ease",
       }}
     >
-      {!isMobileFocusMode && (
+      {(!isMobileFocusMode || !isMobile) && (
         <h1
           style={{
             color: "rgba(255,255,255,0.8)",
-            marginBottom: 18,
+            marginBottom: isMobileFocusMode && !isMobile ? 0 : 18,
             marginLeft: isMobile ? 0 : 166,
             letterSpacing: "0.3em",
             textTransform: "uppercase",
             fontSize: 14,
             fontWeight: 300,
+            position: isMobileFocusMode && !isMobile ? "fixed" : "relative",
+            left: isMobileFocusMode && !isMobile ? 14 : undefined,
+            top: isMobileFocusMode && !isMobile ? 14 : undefined,
+            zIndex: isMobileFocusMode && !isMobile ? 140 : undefined,
+            transform: isMobileFocusMode && !isMobile ? "translateY(0)" : "none",
+            transition: "all 260ms ease",
           }}
         >
           Kongress Center Chemnitz
@@ -645,30 +733,50 @@ const App = () => {
 
       {isMobileFocusMode && isMobile && (
         <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          {isMobile ? (
-            <button
-              onClick={() => setIsMobileSavedDrawerOpen((v) => !v)}
-              aria-label="Gespeicherte Motive"
-              title="Gespeicherte Motive"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 40,
-                height: 40,
-                borderRadius: 8,
-                background: "rgba(255,255,255,0.12)",
-                color: "rgba(255,255,255,0.9)",
-                border: 0,
-                cursor: "pointer",
-              }}
-            >
-              <PanelLeft size={18} />
-            </button>
-          ) : (
-            <div style={{ width: 40, height: 40 }} />
-          )}
-          <div style={{ width: 40, height: 40 }} />
+          <button
+            onClick={() => {
+              setIsMobileSavedDrawerOpen((v) => !v);
+              setIsMobileControlsDrawerOpen(false);
+            }}
+            aria-label="Gespeicherte Motive"
+            title="Gespeicherte Motive"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: "rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.9)",
+              border: 0,
+              cursor: "pointer",
+            }}
+          >
+            <PanelLeft size={18} />
+          </button>
+          <button
+            onClick={() => {
+              setIsMobileControlsDrawerOpen((v) => !v);
+              setIsMobileSavedDrawerOpen(false);
+            }}
+            aria-label="Werkzeuge"
+            title="Werkzeuge"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: "rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.9)",
+              border: 0,
+              cursor: "pointer",
+            }}
+          >
+            <PanelLeft size={18} style={{ transform: "scaleX(-1)" }} />
+          </button>
         </div>
       )}
 
@@ -678,10 +786,11 @@ const App = () => {
           gap: 16,
           flexDirection: isMobile ? "column" : "row",
           alignItems: isMobile ? "center" : "flex-start",
-          width: "min(100%, 1200px)",
+          width: isMobileFocusMode && isMobile ? "100%" : "min(100%, 1200px)",
           justifyContent: "center",
           flex: isMobileFocusMode ? 1 : undefined,
           minHeight: 0,
+          transition: "all 260ms ease",
         }}
       >
         {showDesktopSavedList && savedPatternsPanel}
@@ -749,9 +858,44 @@ const App = () => {
             </div>
           </>
         )}
+        {showMobileSavedDrawer && (
+          <>
+            {isMobileControlsDrawerOpen && (
+              <div
+                onClick={() => setIsMobileControlsDrawerOpen(false)}
+                style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 120 }}
+              />
+            )}
+            <div
+              style={{
+                position: "fixed",
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: 84,
+                background: "rgba(8,12,22,0.98)",
+                borderLeft: "1px solid rgba(255,255,255,0.14)",
+                zIndex: 130,
+                transform: isMobileControlsDrawerOpen ? "translateX(0)" : "translateX(104%)",
+                transition: "transform 180ms ease",
+                padding: 12,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{controlsPanel}</div>
+            </div>
+          </>
+        )}
 
         <div
-          style={{ position: "relative", display: "inline-block" }}
+          style={{
+            position: "relative",
+            display: "inline-block",
+            width: isMobileFocusMode && isMobile ? "100%" : "auto",
+            textAlign: "center",
+          }}
           ref={imageRef}
           onContextMenu={handleContextMenu}
         >
@@ -761,12 +905,14 @@ const App = () => {
           style={{
             display: "block",
             width: "auto",
-            height: isMobile
-              ? "min(62vh, 560px)"
+            height: isMobileFocusMode && isMobile
+              ? "calc(100dvh - 56px)"
+              : isMobile
+                ? "min(62vh, 560px)"
               : isMobileFocusMode
                 ? "min(86vh, 799px)"
                 : "min(82vh, 750px)",
-            maxWidth: "100%",
+            maxWidth: isMobileFocusMode && isMobile ? "100vw" : "100%",
             filter:
               "brightness(0.82) contrast(1.16) saturate(0.93) hue-rotate(2deg) " +
               "drop-shadow(0 4px 12px rgba(0,0,0,0.34))",
@@ -922,102 +1068,28 @@ const App = () => {
         </div>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          marginTop: isMobileFocusMode ? 6 : 24,
-          flexWrap: "wrap",
-          justifyContent: "center",
-          marginLeft: isMobile ? 0 : 166,
-        }}
-      >
-        <button
-          onClick={undo}
-          disabled={historyIndex < 0}
-          title="Zurueck"
-          aria-label="Zurueck"
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)", border: 0, cursor: historyIndex < 0 ? "not-allowed" : "pointer", opacity: historyIndex < 0 ? 0.3 : 1 }}
-        >
-          <Undo2 size={18} />
-        </button>
-        <button
-          onClick={redo}
-          disabled={historyIndex >= history.length - 1}
-          title="Vor"
-          aria-label="Vor"
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)", border: 0, cursor: historyIndex >= history.length - 1 ? "not-allowed" : "pointer", opacity: historyIndex >= history.length - 1 ? 0.3 : 1 }}
-        >
-          <Redo2 size={18} />
-        </button>
-        <button
-          onClick={resetAll}
-          title="Alle aus"
-          aria-label="Alle aus"
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)", border: 0, cursor: "pointer" }}
-        >
-          <Trash2 size={18} />
-        </button>
-        <button
-          onClick={saveCurrentPattern}
-          title="Motiv speichern"
-          aria-label="Motiv speichern"
+      {(!isMobileFocusMode || !isMobile) && (
+        <div
           style={{
             display: "flex",
             alignItems: "center",
+            gap: 12,
+            marginTop: isMobileFocusMode ? 6 : 24,
+            flexWrap: "wrap",
             justifyContent: "center",
-            width: 40,
-            height: 40,
-            borderRadius: 8,
-            background: "rgba(255,255,255,0.1)",
-            color: "rgba(255,255,255,0.9)",
-            border: 0,
-            cursor: "pointer",
+            marginLeft: isMobile ? 0 : 166,
+            position: isMobileFocusMode && !isMobile ? "fixed" : "relative",
+            right: isMobileFocusMode && !isMobile ? 14 : undefined,
+            top: isMobileFocusMode && !isMobile ? "50%" : undefined,
+            transform: isMobileFocusMode && !isMobile ? "translateY(-50%)" : undefined,
+            zIndex: isMobileFocusMode && !isMobile ? 140 : undefined,
+            flexDirection: isMobileFocusMode && !isMobile ? "column" : "row",
+            transition: "all 260ms ease",
           }}
         >
-          <Save size={18} />
-        </button>
-        <button
-          onClick={() => setIsEraserMode((v) => !v)}
-          title={isEraserMode ? "Radiergummi an" : "Radiergummi aus"}
-          aria-label={isEraserMode ? "Radiergummi an" : "Radiergummi aus"}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 40,
-            height: 40,
-            borderRadius: 8,
-            background: isEraserMode ? "rgba(255,120,120,0.25)" : "rgba(255,255,255,0.1)",
-            color: "rgba(255,255,255,0.9)",
-            border: 0,
-            cursor: "pointer",
-          }}
-        >
-          <Eraser size={18} />
-        </button>
-        <button
-          onClick={toggleFullscreenMode}
-          title={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
-          aria-label={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 40,
-            height: 40,
-            borderRadius: 8,
-            background: "rgba(255,255,255,0.1)",
-            color: "rgba(255,255,255,0.9)",
-            border: 0,
-            cursor: "pointer",
-          }}
-        >
-          {isMobileFocusMode ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-        </button>
-
-      </div>
+          {controlsPanel}
+        </div>
+      )}
 
       {showGrid && (
         <div
@@ -1066,10 +1138,12 @@ const App = () => {
         </div>
       )}
 
-      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: isMobileFocusMode ? 8 : 12, marginLeft: isMobile ? 0 : 166 }}>
-        {litCount} von {ROWS * COLS} Fenster beleuchtet
-        {hasSelection && " · Bereich ausgewaehlt (Doppelklick + Ziehen)"}
-      </p>
+      {!(isMobileFocusMode && isMobile) && (
+        <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: isMobileFocusMode ? 8 : 12, marginLeft: isMobile ? 0 : 166, transition: "all 260ms ease" }}>
+          {litCount} von {ROWS * COLS} Fenster beleuchtet
+          {hasSelection && " · Bereich ausgewaehlt (Doppelklick + Ziehen)"}
+        </p>
+      )}
     </div>
   );
 };
