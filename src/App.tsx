@@ -521,7 +521,7 @@ const App = () => {
       className="saved-patterns-scroll"
       style={{
         width: isMobile ? "100%" : 150,
-        maxHeight: isMobile ? "calc(100vh - 120px)" : "76vh",
+        maxHeight: isMobile ? "calc(100vh - 120px)" : "min(82vh, 750px)",
         overflowY: isMobile ? "auto" : "auto",
         overflowX: isMobile ? "hidden" : "hidden",
         whiteSpace: isMobile ? "normal" : "normal",
