@@ -122,13 +122,14 @@ const App = () => {
   const pushHistory = useCallback(
     (prev: boolean[][], next: boolean[][]) => {
       setHistory((h) => {
-        const newH = h.slice(0, historyIndex + 1);
+        const currentIndex = h.length - 1;
+        const newH = h.slice(0, currentIndex + 1);
         newH.push({ prev: prev.map((r) => [...r]), next: next.map((r) => [...r]) });
         return newH;
       });
       setHistoryIndex((i) => i + 1);
     },
-    [historyIndex]
+    []
   );
 
   const clearPendingClickToggle = useCallback(() => {
@@ -318,7 +319,7 @@ const App = () => {
 
     window.addEventListener("pointermove", handlePointerMove, { passive: true });
     return () => window.removeEventListener("pointermove", handlePointerMove);
-  }, [handleLeftEnter, handleSelectionEnter, isPainting, isSelecting]);
+  }, [isPainting, isSelecting]);
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth <= 900);
@@ -341,6 +342,29 @@ const App = () => {
     };
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    const preventSwipeBack = (e: Event) => {
+      e.preventDefault();
+    };
+    
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        if (touch.clientX <= 50) {
+          e.preventDefault();
+        }
+      }
+    };
+    
+    document.addEventListener('gesturestart', preventSwipeBack);
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    
+    return () => {
+      document.removeEventListener('gesturestart', preventSwipeBack);
+      document.removeEventListener('touchstart', handleTouchStart);
+    };
   }, []);
 
   const undo = useCallback(() => {
@@ -375,14 +399,16 @@ const App = () => {
   );
 
   const saveCurrentPattern = useCallback(() => {
-    const snapshot = windows.map((r) => [...r]);
-    setSavedPatterns((prev) => [{ id: nextPatternId, windows: snapshot }, ...prev]);
-    setNextPatternId((id) => id + 1);
-    const empty = Array.from({ length: ROWS }, () => Array(COLS).fill(false)) as boolean[][];
-    pushHistory(snapshot, empty);
-    setWindows(empty);
-    setSelection(null);
-  }, [nextPatternId, pushHistory, windows]);
+    setWindows((currentWindows) => {
+      const snapshot = currentWindows.map((r) => [...r]);
+      setSavedPatterns((prev) => [{ id: nextPatternId, windows: snapshot }, ...prev]);
+      setNextPatternId((id) => id + 1);
+      const empty = Array.from({ length: ROWS }, () => Array(COLS).fill(false)) as boolean[][];
+      pushHistory(snapshot, empty);
+      setSelection(null);
+      return empty;
+    });
+  }, [nextPatternId, pushHistory]);
 
   const deleteSavedPattern = useCallback((patternId: number) => {
     setSavedPatterns((prev) => prev.filter((pattern) => pattern.id !== patternId));
