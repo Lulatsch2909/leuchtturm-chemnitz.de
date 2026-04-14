@@ -522,9 +522,9 @@ const App = () => {
       style={{
         width: isMobile ? "100%" : 150,
         maxHeight: isMobile ? "none" : "76vh",
-        overflowY: isMobile ? "hidden" : "auto",
-        overflowX: isMobile ? "auto" : "hidden",
-        whiteSpace: isMobile ? "nowrap" : "normal",
+        overflowY: isMobile ? "auto" : "auto",
+        overflowX: isMobile ? "hidden" : "hidden",
+        whiteSpace: isMobile ? "normal" : "normal",
         padding: 10,
         borderRadius: 10,
         background: "rgba(255,255,255,0.06)",
@@ -566,10 +566,10 @@ const App = () => {
           onPointerCancel={() => clearLongPressTimeout()}
           onPointerLeave={() => clearLongPressTimeout()}
           style={{
-            width: isMobile ? 132 : "100%",
-            display: isMobile ? "inline-block" : "block",
+            width: isMobile ? "100%" : "100%",
+            display: "block",
             marginBottom: 8,
-            marginRight: isMobile ? 8 : 0,
+            marginRight: 0,
             padding: 6,
             borderRadius: 8,
             border: "1px solid rgba(255,255,255,0.16)",
@@ -1099,7 +1099,7 @@ const App = () => {
             {litCount} Fenster beleuchtet
           </div>
         )}
-        {!isMobile && (
+        {!isMobile && !isMobileFocusMode && (
           <div
             style={{
               display: "flex",
