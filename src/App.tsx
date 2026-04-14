@@ -105,7 +105,7 @@ const App = () => {
   const [savedPatterns, setSavedPatterns] = useState<SavedPattern[]>([]);
   const [nextPatternId, setNextPatternId] = useState(1);
   const [savedPatternMenu, setSavedPatternMenu] = useState<SavedPatternMenu>(null);
-  const [isMobileFocusMode, setIsMobileFocusMode] = useState(false);
+  const [isMobileFocusMode, setIsMobileFocusMode] = useState(() => window.innerWidth <= 900);
   const [isMobileSavedDrawerOpen, setIsMobileSavedDrawerOpen] = useState(false);
   const imageRef = useRef<HTMLDivElement>(null);
   const paintStartWindows = useRef<boolean[][] | null>(null);
@@ -676,14 +676,16 @@ const App = () => {
       >
         <Eraser size={isMobileFocusMode && isMobile ? 16 : 18} />
       </button>
-      <button
-        onClick={toggleFullscreenMode}
-        title={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
-        aria-label={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: controlSize, height: controlSize, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.9)", border: 0, cursor: "pointer" }}
-      >
-        {isMobileFocusMode ? <Minimize2 size={isMobileFocusMode && isMobile ? 16 : 18} /> : <Maximize2 size={isMobileFocusMode && isMobile ? 16 : 18} />}
-      </button>
+      {!isMobile && (
+        <button
+          onClick={toggleFullscreenMode}
+          title={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
+          aria-label={isMobileFocusMode ? "Vollbild verlassen" : "Vollbild"}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: controlSize, height: controlSize, borderRadius: 8, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.9)", border: 0, cursor: "pointer" }}
+        >
+          {isMobileFocusMode ? <Minimize2 size={isMobileFocusMode && isMobile ? 16 : 18} /> : <Maximize2 size={isMobileFocusMode && isMobile ? 16 : 18} />}
+        </button>
+      )}
     </>
   );
 
@@ -707,12 +709,7 @@ const App = () => {
         <button
           key={`mini-${pattern.id}`}
           onClick={() => loadSavedPattern(pattern.windows)}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setSavedPatternMenu({ patternId: pattern.id, x: e.clientX, y: e.clientY });
-          }}
-          onPointerDown={(e) => {
+                    onPointerDown={(e) => {
             if (e.pointerType === "mouse") return;
             clearLongPressTimeout();
             longPressTimeoutRef.current = window.setTimeout(() => {
@@ -728,12 +725,15 @@ const App = () => {
           style={{
             width: 36,
             height: 64,
-            border: 0,
+            border: "1px solid rgba(255,255,255,0.16)",
             borderRadius: 6,
             background: "rgba(6,10,20,0.9)",
             padding: 0,
             cursor: "pointer",
             overflow: "hidden",
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            userSelect: "none",
           }}
           title={`Motiv ${pattern.id} laden`}
         >
@@ -809,7 +809,7 @@ const App = () => {
         </h1>
       )}
 
-      {isMobileFocusMode && isMobile && mobileMiniSavedRail}
+      {isMobileFocusMode && isMobile && !isMobileSavedDrawerOpen && mobileMiniSavedRail}
 
       <div
         style={{
@@ -927,7 +927,7 @@ const App = () => {
               : isMobile
                 ? "min(62vh, 560px)"
               : isMobileFocusMode
-                ? "95dvh"
+                ? "calc(95dvh - 60px)"
                 : "min(82vh, 750px)",
             maxWidth: isMobileFocusMode && isMobile ? "100vw" : "100%",
             filter:
@@ -1083,6 +1083,22 @@ const App = () => {
             })
           )}
         </div>
+        {isMobileFocusMode && !isMobile && (
+          <div
+            style={{
+              height: "60px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "rgba(255,255,255,0.7)",
+              fontSize: "16px",
+              fontWeight: "300",
+              letterSpacing: "0.1em",
+            }}
+          >
+            {litCount} Fenster beleuchtet
+          </div>
+        )}
         {!isMobile && (
           <div
             style={{
