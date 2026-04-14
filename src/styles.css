@@ -23,7 +23,7 @@ button {
 }
 
 .saved-patterns-scroll::-webkit-scrollbar {
-  width: 10px;
+  width: 14px;
 }
 
 .saved-patterns-scroll::-webkit-scrollbar-track {
