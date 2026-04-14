@@ -40,5 +40,5 @@ button {
 }
 
 .saved-patterns-scroll::-webkit-scrollbar-thumb:active {
-  background: #666;
+  background: #fff;
 }

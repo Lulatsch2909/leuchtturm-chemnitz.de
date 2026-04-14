@@ -521,7 +521,7 @@ const App = () => {
       className="saved-patterns-scroll"
       style={{
         width: isMobile ? "100%" : 150,
-        maxHeight: isMobile ? "50vh" : "76vh",
+        maxHeight: isMobile ? "70vh" : "76vh",
         overflowY: isMobile ? "auto" : "auto",
         overflowX: isMobile ? "hidden" : "hidden",
         whiteSpace: isMobile ? "normal" : "normal",
@@ -1083,23 +1083,7 @@ const App = () => {
             })
           )}
         </div>
-        {isMobileFocusMode && !isMobile && (
-          <div
-            style={{
-              height: "60px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "rgba(255,255,255,0.7)",
-              fontSize: "16px",
-              fontWeight: "300",
-              letterSpacing: "0.1em",
-            }}
-          >
-            {litCount} Fenster beleuchtet
-          </div>
-        )}
-        {!isMobile && (
+                {!isMobile && (
           <div
             style={{
               display: "flex",
