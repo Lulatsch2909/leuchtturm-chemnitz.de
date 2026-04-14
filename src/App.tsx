@@ -521,7 +521,7 @@ const App = () => {
       className="saved-patterns-scroll"
       style={{
         width: isMobile ? "100%" : 150,
-        maxHeight: isMobile ? "none" : "76vh",
+        maxHeight: isMobile ? "50vh" : "76vh",
         overflowY: isMobile ? "auto" : "auto",
         overflowX: isMobile ? "hidden" : "hidden",
         whiteSpace: isMobile ? "normal" : "normal",
@@ -816,9 +816,9 @@ const App = () => {
           display: "flex",
           gap: 16,
           flexDirection: isMobile ? "column" : "row",
-          alignItems: isMobile ? "center" : "flex-start",
+          alignItems: isMobile ? "center" : (isMobileFocusMode ? "center" : "flex-start"),
           width: isMobileFocusMode && isMobile ? "100%" : "min(100%, 1200px)",
-          justifyContent: "center",
+          justifyContent: isMobileFocusMode && !isMobile ? "center" : "center",
           flex: isMobileFocusMode ? 1 : undefined,
           minHeight: 0,
         }}
@@ -1099,7 +1099,7 @@ const App = () => {
             {litCount} Fenster beleuchtet
           </div>
         )}
-        {!isMobile && !isMobileFocusMode && (
+        {!isMobile && (
           <div
             style={{
               display: "flex",

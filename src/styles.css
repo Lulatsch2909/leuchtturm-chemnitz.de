@@ -34,3 +34,11 @@ button {
   background: #000;
   border-radius: 10px;
 }
+
+.saved-patterns-scroll::-webkit-scrollbar-thumb:hover {
+  background: #333;
+}
+
+.saved-patterns-scroll::-webkit-scrollbar-thumb:active {
+  background: #666;
+}
